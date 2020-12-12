@@ -129,7 +129,7 @@ static void install_globalVars(Decls decls) {
 	for (int i=decls->first(); decls->more(i); i=decls->next(i)) {
 		if (!decls->nth(i)->isCallDecl()) {
 			if (objectEnv.probe(decls->nth(i)->getName()) != NULL) {
-				semant_error(decls->nth(i)) << "Global variable defined." << endl;
+				semant_error(decls->nth(i)) << "var " << decls->nth(i)->getName() << " was previously defined." << endl;
 			}
 			else if (sameType(decls->nth(i)->getType(), Void)) {
 				semant_error(decls->nth(i)) << "var " << decls->nth(i)->getName() << " cannot be of type Void." << endl;
@@ -166,7 +166,7 @@ void VariableDecl_class::check() {
 	Symbol name = this->getName();
 	Symbol type = this->getType();
 	if (sameType(type, Void)) {
-		semant_error(this) << "var " << this->getName() << " cannot be of type 'void'." << std::endl;
+		semant_error(this) << "var " << this->getName() << " cannot be of type Void. Void can just be used as return type." << std::endl;
 	}
 }
 
@@ -179,7 +179,7 @@ void CallDecl_class::check() {
 		Symbol name = vars->nth(i)->getName();
 		
 		if (objectEnv.probe(name) != NULL) {
-			semant_error(vars->nth(i)) << "duplicate parameter." << name << std::endl;
+			semant_error(vars->nth(i)) << "Function " << this->getName() << " 's parameter has a duplicate name " << name << "." << std::endl;
 		}
 		else {
 			Symbol vartype = vars->nth(i)->getType();
@@ -190,10 +190,10 @@ void CallDecl_class::check() {
 	//main() has return type 'void' and no params
 	if (sameType(this->getName(), Main)) {
 		if (!sameType(this->getType(), Void)) {
-			semant_error(this) << "main function should have return type Void." << std::endl;
+			semant_error(this) << "Main function should have return type Void." << std::endl;
 		}
-		else if (vars->len()) {
-			semant_error(this) << "main() has no params." << std::endl;
+		if (vars->len()) {
+			semant_error(this) << "Main function should not have any parameters" << std::endl;
 		}
 	}
 	
@@ -220,7 +220,7 @@ void StmtBlock_class::check(Symbol type) {
 	
 	for (int i=var_decls->first(); var_decls->more(i); i=var_decls->next(i)) {
 		if (objectEnv.probe(var_decls->nth(i)->getName()) != NULL) {
-			semant_error(var_decls->nth(i)) << "duplicate variable declaration." << std::endl;
+			semant_error(var_decls->nth(i)) << "var " << var_decls->nth(i)->getName() << " was previously defined." << std::endl;
 		}
 		else {
 			Symbol type = var_decls->nth(i)->getType();
@@ -338,7 +338,7 @@ Symbol Call_class::checkType(){
 	}
 	else {
 		if (actuals->len() != call_table.find(name)->second->getVariables()->len()) {
-			semant_error(this) << "number of params doesn't match definition." << std::endl;
+			semant_error(this) << "Function " << name <<" called with wrong number of arguments." << std::endl;
 		}
 		else {
 			Variables vars = call_table.find(name)->second->getVariables();
@@ -351,6 +351,7 @@ Symbol Call_class::checkType(){
 				}
 			}
 		}
+		
 	}
 	Symbol calltype = call_table.find(name)->second->getType();
 	this->setType(calltype);
@@ -390,7 +391,8 @@ Symbol Add_class::checkType(){
 		type = Int;
 	}
 	else {
-		semant_error(this) << "+ operation not between Int/Float" << std::endl;
+		semant_error(this) << "Cannot add a " << type1 << " and a " << type2 << "." << std::endl;
+		type = Void;
 	}
 	return type;
 }
@@ -409,7 +411,8 @@ Symbol Minus_class::checkType(){
 		type = Int;
 	}
 	else {
-		semant_error(this) << "- operation not between Int/Float" << std::endl;
+		semant_error(this) << "Cannot minus a " << type1 << " and a " << type2 << "." << std::endl;
+		type = Void;
 	}
 	return type;
 }
@@ -428,7 +431,8 @@ Symbol Multi_class::checkType(){
 		type = Int;
 	}
 	else {
-		semant_error(this) << "* operation not between Int/Float" << std::endl;
+		semant_error(this) << "Cannot multi a " << type1 << " and a " << type2 << "." << std::endl;
+		type = Void;
 	}
 	return type;
 }
@@ -447,7 +451,8 @@ Symbol Divide_class::checkType(){
 		type = Int;
 	}
 	else {
-		semant_error(this) << "/ operation not between Int/Float" << std::endl;
+		semant_error(this) << "Cannot div a " << type1 << " and a " << type2 << "." << std::endl;
+		type = Void;
 	}
 	return type;
 }
@@ -460,14 +465,16 @@ Symbol Mod_class::checkType(){
 		type = Int;
 	}
 	else {
-		semant_error(this) << "mod operation not between Int" << std::endl;
+		semant_error(this) << "Cannot mod a " << type1 << " and a " << type2 << "." << std::endl;
+		type = Void;
 	}
 	return type;
 }
 
 Symbol Neg_class::checkType(){
-	if(!sameType(e1->getType(), Int)) {
-		semant_error(this) << "exp is not Int." << std::endl;
+	if(!sameType(e1->getType(), Int) || !sameType(e1->getType(), Float)) {
+		semant_error(this) << "A" << e1->getType() <<"doesn't have a negative." << std::endl;
+		this->setType(Void);
 	}
 	
 	this->setType(Int);
@@ -482,7 +489,8 @@ Symbol Lt_class::checkType(){
 		type = Bool;
 	}
 	else {
-		semant_error(this) << "operation not between Int/Float" << std::endl;
+		semant_error(this) << "Cannot compare a " << type1 << " and a " << type2 << "." << std::endl;
+		type = Void;
 	}
 	return type;
 }
@@ -495,7 +503,8 @@ Symbol Le_class::checkType(){
 		type = Bool;
 	}
 	else {
-		semant_error(this) << "operation not between Int/Float" << std::endl;
+		semant_error(this) << "Cannot compare a " << type1 << " and a " << type2 << "." << std::endl;
+		type = Void;
 	}
 	return type;
 }
@@ -508,7 +517,8 @@ Symbol Equ_class::checkType(){
 		type = Bool;
 	}
 	else {
-		semant_error(this) << "operand type wrong." << std::endl;
+		semant_error(this) << "Cannot compare a " << type1 << " and a " << type2 << "." << std::endl;
+		type = Void;
 	}
 	return type;
 }
@@ -521,7 +531,8 @@ Symbol Neq_class::checkType(){
 		type = Bool;
 	}
 	else {
-		semant_error(this) << "operand type wrong." << std::endl;
+		semant_error(this) << "Cannot compare a " << type1 << " and a " << type2 << "." << std::endl;
+		type = Void;
 	}
 	return type;
 }
@@ -534,7 +545,8 @@ Symbol Ge_class::checkType(){
 		type = Bool;
 	}
 	else {
-		semant_error(this) << "operation not between Int/Float" << std::endl;
+		semant_error(this) << "Cannot compare a " << type1 << " and a " << type2 << "." << std::endl;
+		type = Void;
 	}
 	return type;
 }
@@ -547,7 +559,8 @@ Symbol Gt_class::checkType(){
 		type = Bool;
 	}
 	else {
-		semant_error(this) << "operation not between Int/Float" << std::endl;
+		semant_error(this) << "Cannot compare a " << type1 << " and a " << type2 << "." << std::endl;
+		type = Void;
 	}
 	return type;
 }
@@ -560,7 +573,8 @@ Symbol And_class::checkType(){
 		type = Bool;
 	}
 	else {
-		semant_error(this) << "bool operation not between Bool" << std::endl;
+		semant_error(this) << "Cannot use && between " << type1 << " and " << type2 << "." << std::endl;
+		type = Void;
 	}
 	return type;
 }
@@ -573,7 +587,8 @@ Symbol Or_class::checkType(){
 		type = Bool;
 	}
 	else {
-		semant_error(this) << "bool operation not between Bool" << std::endl;
+		semant_error(this) << "Cannot use || between " << type1 << " and " << type2 << "." << std::endl;
+		type = Void;
 	}
 	return type;
 }
@@ -586,7 +601,8 @@ Symbol Xor_class::checkType(){
 		type = Bool;
 	}
 	else {
-		semant_error(this) << "bool operation not between Bool" << std::endl;
+		semant_error(this) << "Cannot use ^ between " << type1 << " and " << type2 << "." << std::endl;
+		type = Void;
 	}
 	return type;
 }
@@ -598,35 +614,50 @@ Symbol Not_class::checkType(){
 		type = Bool;
 	}
 	else {
-		semant_error(this) << "bool operation not between Bool" << std::endl;
+		semant_error(this) << "Cannot use ! upon " << type1 << "." << std::endl;
+		type = Void;
 	}
 	return type;
 }
 
 Symbol Bitand_class::checkType(){
-	if(!sameType(e1->getType(), Int) || !sameType(e2->getType(), Int)) {
-		semant_error(this) << "exp is not Int." << std::endl;
-	}
+	Symbol type1 = e1->checkType();
+	Symbol type2 = e2->checkType();	
 	
-	this->setType(Int);
+	if (sameType(type1, Bool) && sameType(type2, Bool)) {
+		type = Bool;
+	}
+	else {
+		semant_error(this) << "Cannot use & between " << type1 << " and " << type2 << "." << std::endl;
+		type = Void;
+	}
 	return type;
 }
 
 Symbol Bitor_class::checkType(){
-	if(!sameType(e1->getType(), Int) || !sameType(e2->getType(), Int)) {
-		semant_error(this) << "exp is not Int." << std::endl;
-	}
+	Symbol type1 = e1->checkType();
+	Symbol type2 = e2->checkType();	
 	
-	this->setType(Int);
+	if (sameType(type1, Bool) && sameType(type2, Bool)) {
+		type = Bool;
+	}
+	else {
+		semant_error(this) << "Cannot use | between " << type1 << " and " << type2 << "." << std::endl;
+		type = Void;
+	}
 	return type;
 }
 
 Symbol Bitnot_class::checkType(){
-	if(!sameType(e1->getType(), Int)) {
-		semant_error(this) << "exp is not Int." << std::endl;
-	}
+	Symbol type1 = e1->checkType();	
 	
-	this->setType(Int);
+	if (sameType(type1, Bool)) {
+		type = Bool;
+	}
+	else {
+		semant_error(this) << "Cannot use unary op ~ upon " << type1 << "." << std::endl;
+		type = Void;
+	}
 	return type;
 }
 
