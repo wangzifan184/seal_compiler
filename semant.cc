@@ -153,7 +153,7 @@ static void check_calls(Decls decls) {
 
 static void check_main() {
 	if (call_table.lookup(Main) == NULL) {
-		semant_error() << "cannot find function 'main'." << std::endl;
+		semant_error() << "Main function is not defined." << std::endl;
 	}
 }
 
@@ -369,7 +369,7 @@ Symbol Assign_class::checkType(){
 
 	Symbol valuetype = value->checkType();
 	if(objectEnv.lookup(lvalue) == NULL) {
-		semant_error(this) << "undefined symbol" << std::endl;
+		semant_error(this) << "Left value " << lvalue << " has not been defined." << std::endl;
 	}
 	else if(!sameType(*(objectEnv.lookup(lvalue)), valuetype)) {
 		semant_error(this) << lvalue <<" " << *(objectEnv.lookup(lvalue)) << " assign value mismatch. " << valuetype << std::endl;
