@@ -15,7 +15,10 @@ typedef SymbolTable<Symbol, Symbol> ObjectEnvironment; // name, type
 ObjectEnvironment objectEnv;
 
 
-typedef SymbolTable<Symbol, Decl_class> Call_table;
+//typedef SymbolTable<Symbol, Decl_class> Call_table;
+//Call_table call_table;
+
+typedef std::map<Symbol, Decl> Call_table;
 Call_table call_table;
 
 int inloop = 0;
@@ -103,18 +106,19 @@ static bool sameType(Symbol name1, Symbol name2) {
 
 static void install_calls(Decls decls) {
 	
-	//insert all CallDecls into call_table
-	call_table.enterscope();
 	
 	for (int i=decls->first(); decls->more(i); i=decls->next(i)) {
 		if (decls->nth(i)->isCallDecl()) {
-			if (objectEnv.lookup(decls->nth(i)->getName()) != NULL) {
-				semant_error(decls->nth(i)) << "Function " << decls->nth(i)->getName() <<" defined." << std::endl;
+			Symbol call_name = decls->nth(i)->getName();
+			if (call_table.find(call_name) != call_table.end()) {
+				semant_error(decls->nth(i)) << "Function " << decls->nth(i)->getName() <<" was previously defined." << std::endl;
+			}
+			else if (call_name == print) {
+				semant_error(decls->nth(i)) << "Function printf cannot be redefination." << std::endl;
 			}
 			else {
-				call_table.addid(decls->nth(i)->getName(), decls->nth(i));
+				call_table.insert(std::make_pair(call_name, decls->nth(i)));
 			}
-			//decls->nth(i)->check();
 		}
 	}
 }
@@ -152,7 +156,7 @@ static void check_calls(Decls decls) {
 }
 
 static void check_main() {
-	if (call_table.lookup(Main) == NULL) {
+	if (call_table.find(Main) == call_table.end()) {
 		semant_error() << "Main function is not defined." << std::endl;
 	}
 }
@@ -164,9 +168,6 @@ void VariableDecl_class::check() {
 	if (sameType(type, Void)) {
 		semant_error(this) << "var " << this->getName() << " cannot be of type 'void'." << std::endl;
 	}
-	/*else {
-		objectEnv.addid(name, &type);
-	}*/
 }
 
 void CallDecl_class::check() {
@@ -281,14 +282,10 @@ void ForStmt_class::check(Symbol type) {
 	StmtBlock body;	getInit(), getCondition(), getLoop(), getBody()
 	*/
 	
-	//Init check?? unfinished
 	this->getInit()->checkType();
 	this->getCondition()->checkType();
 	this->getLoop()->checkType();
-	//if (!sameType(this->getCondition()->getType(), Bool)) {
-//		semant_error(this->getCondition()) << "type of condition not 'bool'." << std::endl;
-//	}
-	//Loop check?? unfinished
+
 	++inloop;
 	objectEnv.enterscope();
 	this->getBody()->check(type);
@@ -331,20 +328,20 @@ Symbol Call_class::checkType(){
 			semant_error(this) << "printf() must have at least one parameter." << std::endl;
 		}
 		if (!sameType(actuals->nth(actuals->first())->checkType(), String)) {
-			semant_error(this) << "first parameter of printf() must be String." << std::endl;
+			semant_error(this) << "printf()'s first parameter must be of type String." << std::endl;
 		}
 		return Void;
 	}
-	else if(call_table.lookup(name) == NULL) {
+	else if(call_table.find(name) == call_table.end()) {
 		semant_error(this) << "function " << name << " not defined." << std::endl;
 		return Void;
 	}
 	else {
-		if (actuals->len() != call_table.lookup(name)->getVariables()->len()) {
+		if (actuals->len() != call_table.find(name)->second->getVariables()->len()) {
 			semant_error(this) << "number of params doesn't match definition." << std::endl;
 		}
 		else {
-			Variables vars = call_table.lookup(name)->getVariables();
+			Variables vars = call_table.find(name)->second->getVariables();
 			for(int i=vars->first(); vars->more(i); i=vars->next(i)) {
 				Symbol vartype = vars->nth(i)->getType();
 				Symbol actualtype = actuals->nth(i)->checkType();
@@ -355,7 +352,7 @@ Symbol Call_class::checkType(){
 			}
 		}
 	}
-	Symbol calltype = call_table.lookup(name)->getType();
+	Symbol calltype = call_table.find(name)->second->getType();
 	this->setType(calltype);
 	return calltype;
 }
@@ -372,7 +369,7 @@ Symbol Assign_class::checkType(){
 		semant_error(this) << "Left value " << lvalue << " has not been defined." << std::endl;
 	}
 	else if(!sameType(*(objectEnv.lookup(lvalue)), valuetype)) {
-		semant_error(this) << lvalue <<" " << *(objectEnv.lookup(lvalue)) << " assign value mismatch. " << valuetype << std::endl;
+		semant_error(this) << "Right value must have type " << *(objectEnv.lookup(lvalue)) << " , got " << valuetype << std::endl;
 	}
 	this->setType(valuetype);
 	return valuetype;
